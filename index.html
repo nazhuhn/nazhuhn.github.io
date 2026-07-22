@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nazhuhn</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * { user-select: none; -webkit-user-select: none; }
+
+    :root {
+      --bg: #0d0f14;
+      --surface: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.07);
+      --text: #c8cdd6;
+      --muted: #5a6070;
+      --accent: #b39ddb;       /* light purple */
+      --accent-dim: rgba(179,157,219,0.15);
+      --rain-color: rgba(160,180,220,0.18);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── Rain canvas ── */
+    #rain {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    main {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+      /* Start hidden and shifted up */
+      opacity: 0;
+      transform: translateY(-40px);
+      transition: opacity 1.2s cubic-bezier(0.215, 0.61, 0.355, 1), 
+                  transform 1.2s cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+
+    /* Target state when the overlay is dismissed */
+    .card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Heading ── */
+    .heading {
+      font-size: clamp(1.9rem, 5vw, 2.6rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: #dde2ec;
+      margin-bottom: 0.15em;
+    }
+
+    .heading .name {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── Links row ── */
+    .links {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-bottom: 2.5rem;
+    }
+
+    .links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35em;
+      padding: 0.3em 0.85em;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.82rem;
+      transition: border-color 0.18s, color 0.18s, background 0.18s;
+    }
+
+    .links a:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* twitter bird icon */
+    .links a svg { width: 13px; height: 13px; fill: currentColor; flex-shrink: 0; }
+    .links a svg.outline { fill: none; stroke: currentColor; }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    /* ── Project list ── */
+    .projects {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+    }
+
+    .project {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.6em;
+      text-decoration: none;
+      color: var(--text);
+      padding: 0.18rem 0;
+      width: fit-content;
+    }
+
+    .project-name {
+      font-size: 0.9rem;
+      font-weight: 400;
+      color: #dde2ec;
+      text-decoration: underline;
+      text-decoration-color: var(--border);
+      text-underline-offset: 3px;
+      transition: color 0.15s, text-decoration-color 0.15s;
+    }
+
+    .project:hover .project-name {
+      color: var(--accent);
+      text-decoration-color: var(--accent);
+    }
+
+    .project-arrow {
+      color: var(--muted);
+      font-size: 0.8rem;
+      transition: color 0.15s;
+    }
+
+    .project:hover .project-arrow {
+      color: var(--accent);
+    }
+
+    /* ── Clock ── */
+    .clock-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      margin-bottom: 2.5rem;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.7;
+      animation: pulse 2.4s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.7; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    #clock {
+      font-size: 0.85rem;
+      color: var(--muted);
+      letter-spacing: 0.01em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #tz-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 2.5rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    #j-hint {
+      opacity: 0.4;
+      font-style: italic;
+      transition: opacity 0.3s;
+    }
+    #j-hint:hover { opacity: 0.7; }
+
+    #mobile-hint {
+      display: none;
+      position: fixed;
+      bottom: 1.2rem;
+      right: 1.2rem;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      opacity: 0.35;
+      transition: opacity 0.2s;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #mobile-hint:hover, #mobile-hint:active { opacity: 0.75; }
+
+    @media (max-width: 600px) {
+      #j-hint { display: none; }
+      #mobile-hint { display: flex; }
+    }
+
+
+      .project { transition: none; }
+
+    /* ── Project tooltip card ── */
+    .projects {
+      position: relative;
+    }
+
+    .project-wrap {
+      position: relative;
+      width: fit-content;
+    }
+
+    .project-tip {
+      position: absolute;
+      left: calc(100% + 0.9rem);
+      top: 50%;
+      transform: translateY(-50%) translateX(-4px);
+      background: rgba(20,22,30,0.97);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
+      width: 210px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.5;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s, transform 0.15s;
+      white-space: normal;
+      z-index: 20;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    .project-wrap:hover .project-tip {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+
+    /* ── Mute toggle ── */
+    #mute-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 20;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 0.25em 0.7em;
+      cursor: pointer;
+      transition: border-color 0.18s, color 0.18s, background 0.18s;
+      font-family: inherit;
+      letter-spacing: 0.03em;
+    }
+    #mute-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* ── Splash canvas ── */
+    #splashes {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ── Enter Overlay ── */
+    #enter-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      z-index: 9999; /* Sit on top of everything */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+
+    .enter-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
+    .enter-text {
+      color: var(--muted);
+      font-size: 1.3rem; /* Bigger, readable sizing */
+      letter-spacing: 0.08em;
+      transition: color 0.2s ease;
+    }
+
+    #enter-overlay:hover .enter-text {
+      color: var(--accent); /* Subtle glow effect on hover */
+    }
+
+    .enter-no-audio {
+      background: none;
+      border: none;
+      color: var(--muted);
+      opacity: 0.6;
+      font-family: inherit;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      padding: 0.75rem 1.5rem; /* generous hitbox despite small text */
+      transition: color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .enter-no-audio:hover {
+      color: var(--accent);
+      opacity: 1;
+    }
+
+    #enter-overlay:has(.enter-no-audio:hover) .enter-text {
+      color: var(--muted);
+    }
+
+    /* Class to fade out and hide the screen */
+    #enter-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+  </style>
+</head>
+<body>
+
+<div id="enter-overlay">
+  <div class="enter-inner">
+    <div class="enter-text">click to enter</div>
+    <button id="enter-no-audio" class="enter-no-audio" type="button">enter without audio</button>
+  </div>
+</div>
+
+<canvas id="rain"></canvas>
+
+<main>
+  <div class="card">
+    <h1 class="heading">I'm <span class="name">nazhuhn</span></h1>
+    <p class="sub">just 'naz' works.</p>
+
+    <div class="links">
+      <a href="https://nazhuhn.github.io/socials" rel="noopener">
+        <svg class="outline" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        socials
+      </a>
+    </div>
+
+    <p class="section-label">time</p>
+    <div class="clock-row">
+      <div class="status-dot"></div>
+      <span id="clock">It's currently -- for me</span>
+    </div>
+
+    <p class="section-label">projects</p>
+
+    <div class="projects">
+  <div class="project-wrap">
+    <a class="project" href="https://github.com/nazhuhn/SPOH24" target="_blank" rel="noopener">
+      <span class="project-name">SPOH24</span>
+      <span class="project-arrow">↗</span>
+    </a>
+    <div class="project-tip">A 'token' system for Singapore Polytechnic Open House 2024.</div>
+  </div>
+
+    <footer>
+      <span id="visit-count">you've visited this site -- times</span> &nbsp;·&nbsp; <span id="j-hint">psst.. press J</span>
+    </footer>
+  </div>
+</main>
+
+<button id="mobile-hint" aria-label="Randomise rain colour">?</button>
+
+<script>
+  // ── Sydney Clock ──
+  function updateClock() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-SG', {
+      timeZone: 'Asia/Singapore',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+
+    document.getElementById('clock').textContent = `It's currently ${timeStr} (SGT) for me.`;
+  }
+
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── Visit counter ──
+  (function () {
+    const KEY = 'naz_visit_count';
+    let count = parseInt(localStorage.getItem(KEY) || '0', 10);
+    count += 1;
+    localStorage.setItem(KEY, count);
+    const label = count === 1 ? 'time' : 'times';
+    document.getElementById('visit-count').textContent =
+      `You've visited this site ${count} ${label}`;
+  })();
+
+  // ── Scroll → Rain Speed ──
+  const BASE_SPEED_MIN = 10, BASE_SPEED_MAX = 17;
+  let scrollSpeedMult = 1;
+
+  window.addEventListener('wheel', (e) => {
+    scrollSpeedMult = Math.max(1, Math.min(6, scrollSpeedMult + (e.deltaY > 0 ? 0.4 : -0.4)));
+  }, { passive: true });
+
+
+  const canvas = document.getElementById('rain');
+  const ctx = canvas.getContext('2d');
+  let drops = [];
+  let animId;
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    initDrops();
+  }
+
+  function initDrops() {
+    drops = [];
+    const count = Math.floor((canvas.width * canvas.height) / 6000);
+    for (let i = 0; i < count; i++) {
+      drops.push(newDrop(true));
+    }
+  }
+
+  function newDrop(randomY) {
+    return {
+      x:       Math.random() * canvas.width,
+      y:       randomY ? Math.random() * canvas.height : -20,
+      len:     Math.random() * 18 + 10,
+      speed:   Math.random() * 7 + 10,
+      opacity: Math.random() * 0.4 + 0.15,
+      width:   Math.random() * 0.8 + 0.4,
+      vx:      0, // lateral displacement velocity
+    };
+  }
+
+  // ── Rain colour ──
+  let rainColor = null; // null = default
+
+  const hint = document.getElementById('j-hint');
+  const mobileBtn = document.getElementById('mobile-hint');
+
+  function playClick() {
+    const clickSfx = document.getElementById('click-sfx');
+    if (!clickSfx) return;
+    clickSfx.currentTime = 0;
+    clickSfx.play().catch(() => {});
+  }
+
+  function randomiseRain() {
+    const r = Math.floor(Math.random() * 256);
+    const g = Math.floor(Math.random() * 256);
+    const b = Math.floor(Math.random() * 256);
+    rainColor = `${r},${g},${b}`;
+    hint.textContent = 'press K to reset';
+    mobileBtn.textContent = '↺';
+  }
+
+  function resetRain() {
+    rainColor = null;
+    hint.textContent = 'psst.. press J';
+    mobileBtn.textContent = '?';
+  }
+
+  mobileBtn.addEventListener('click', () => {
+    playClick();
+    rainColor ? resetRain() : randomiseRain();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'j' || e.key === 'J') { playClick(); randomiseRain(); }
+    else if (e.key === 'k' || e.key === 'K') resetRain();
+  });
+
+
+  let mouse = { x: -9999, y: -9999 };
+  window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+  window.addEventListener('mouseleave', () => { mouse.x = -9999; mouse.y = -9999; });
+
+  const MOUSE_RADIUS = 110;
+  const PUSH_STRENGTH = 6;
+  const RETURN_EASE = 0.08;
+
+  function drawRain() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < drops.length; i++) {
+      const d = drops[i];
+
+      // Displacement: push drops away from cursor
+      const dx = d.x - mouse.x;
+      const dy = d.y - mouse.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < MOUSE_RADIUS && dist > 0) {
+        const influence = (1 - dist / MOUSE_RADIUS);
+        d.vx += (dx / dist) * influence * PUSH_STRENGTH;
+      }
+
+      // Clamp and ease vx back toward 0
+      d.vx = Math.max(-18, Math.min(18, d.vx));
+      d.vx *= (1 - RETURN_EASE);
+
+      const spd = d.speed * scrollSpeedMult;
+      d.x += spd * 0.18 + d.vx;
+      d.y += spd;
+
+      // Draw with current vx affecting the streak angle
+      const tiltX = d.len * 0.18 + d.vx * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x + tiltX, d.y + d.len);
+      ctx.strokeStyle = `rgba(${rainColor ?? '160,185,230'},${rainColor ? Math.min(1, d.opacity * 2.2) : d.opacity})`;
+      ctx.lineWidth   = rainColor ? d.width * 2.5 : d.width;
+      ctx.stroke();
+
+      if (d.y > canvas.height + d.len || d.x > canvas.width + d.len) {
+        drops[i] = newDrop(false);
+        drops[i].x = Math.random() * canvas.width;
+      }
+    }
+    animId = requestAnimationFrame(drawRain);
+  }
+
+  resize();
+  drawRain();
+
+  window.addEventListener('resize', () => {
+    cancelAnimationFrame(animId);
+    resize();
+    drawRain();
+  });
+</script>
+
+
+<audio id="purr-sfx" src="assets/purr.mp3" preload="auto"></audio>
+<audio id="click-sfx" src="assets/click.mp3" preload="auto"></audio>
+<img
+  id="site-cat"
+  src="assets/cat.webp"
+  alt="cat"
+  title="click me :3"
+  onclick="const a=document.getElementById('purr-sfx');a.currentTime=0;a.play();"
+  style="
+    position: fixed;
+    bottom: 1rem;
+    left: 1rem;
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    cursor: pointer;
+    z-index: 10;
+    image-rendering: pixelated;
+    transition: transform 0.12s ease;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+  "
+  onmousedown="this.style.transform='scale(0.88)'"
+  onmouseup="this.style.transform='scale(1)'"
+  onmouseleave="this.style.transform='scale(1)'"
+/>
+
+
+<audio id="rain-sfx" src="assets/rain.mp3" loop preload="auto"></audio>
+
+<canvas id="splashes"></canvas>
+
+<button id="mute-btn" aria-label="Toggle rain sound">♪ rain</button>
+
+<script>
+// ── Rain audio
+  const rainAudio = document.getElementById('rain-sfx');
+  rainAudio.volume = 0.06;
+  let rainMuted = false;
+  let rainStarted = false;
+
+  const enterOverlay = document.getElementById('enter-overlay');
+
+  // Triggered when clicking ANYWHERE on the overlay screen
+  enterOverlay.addEventListener('click', () => {
+    enterOverlay.classList.add('hidden'); // Fade out the screen
+    document.querySelector('.card').classList.add('visible');
+    if (!rainStarted && !rainMuted) {
+      rainStarted = true;
+      rainAudio.play().catch((err) => console.log("Audio play blocked:", err));
+    }
+  });
+
+  // "Enter without audio" — mutes rain sound before entering
+  const enterNoAudioBtn = document.getElementById('enter-no-audio');
+  enterNoAudioBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // Don't also trigger the overlay's own click handler
+    rainMuted = true;
+    rainStarted = true; // Prevent later autoplay attempts
+    rainAudio.pause();
+    rainAudio.muted = true;
+    muteBtn.textContent = '♪ muted';
+    enterOverlay.classList.add('hidden');
+    document.querySelector('.card').classList.add('visible');
+  });
+
+  // Backup fallback: global listener just in case
+  function tryStartRain() {
+    if (rainStarted || rainMuted) return;
+    rainStarted = true;
+    rainAudio.play().catch(() => {});
+  }
+  window.addEventListener('click', tryStartRain, { once: false });
+  window.addEventListener('keydown', tryStartRain, { once: false });
+
+  const muteBtn = document.getElementById('mute-btn');
+  muteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    rainMuted = !rainMuted;
+    rainAudio.muted = rainMuted;
+    muteBtn.textContent = rainMuted ? '♪ muted' : '♪ rain';
+    if (rainMuted) {
+      rainAudio.pause();
+    } else {
+      rainAudio.play().catch(() => {});
+    }
+  });
+
+  // ── Splash effect ──
+  const splashCanvas = document.getElementById('splashes');
+  const sCtx = splashCanvas.getContext('2d');
+  let splashParticles = [];
+
+  function resizeSplash() {
+    splashCanvas.width = window.innerWidth;
+    splashCanvas.height = window.innerHeight;
+  }
+  resizeSplash();
+  window.addEventListener('resize', resizeSplash);
+
+  function spawnSplash(x, y) {
+    const count = 10 + Math.floor(Math.random() * 8);
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 3.5 + 1;
+      splashParticles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2.5,
+        life: 1,
+        size: Math.random() * 2.5 + 0.8,
+      });
+    }
+  }
+
+  window.addEventListener('click', (e) => {
+    // don't splash on mute button or cat
+    if (e.target.id === 'mute-btn' || e.target.id === 'site-cat') return;
+    spawnSplash(e.clientX, e.clientY);
+    tryStartRain();
+  });
+
+  function animateSplash() {
+    sCtx.clearRect(0, 0, splashCanvas.width, splashCanvas.height);
+    for (let i = splashParticles.length - 1; i >= 0; i--) {
+      const p = splashParticles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.18; // gravity
+      p.life -= 0.045;
+      if (p.life <= 0) { splashParticles.splice(i, 1); continue; }
+      sCtx.beginPath();
+      sCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      sCtx.fillStyle = `rgba(160,185,230,${p.life * 0.7})`;
+      sCtx.fill();
+    }
+    requestAnimationFrame(animateSplash);
+  }
+  animateSplash();
+</script>
+
+</body>
+</html>
